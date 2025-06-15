@@ -1,1 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Resume Tailor Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <div class="max-w-2xl mx-auto p-8">
+        <h1 class="text-3xl font-bold text-slate-800 mb-2">Settings</h1>
+        <p class="text-slate-600 mb-8">Manage your extension settings and API keys.</p>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-xl font-semibold text-slate-700 mb-4">API Configuration</h2>
+            <p class="text-sm text-slate-500 mb-4">
+                These keys are stored locally on your browser and are not sent to our servers.
+                In a real application, the most sensitive keys (like OpenAI's) should be kept on a secure server, not in the client.
+            </p>
+            <div class="space-y-4">
+                <div>
+                    <label for="backend-url" class="block text-sm font-medium text-slate-600">Your Backend Server URL</label>
+                    <input type="text" id="backend-url" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="https://your-server-api.com">
+                    <p class="mt-1 text-xs text-slate-500">The URL for your server that securely calls the AI and parsing APIs.</p>
+                </div>
+                 <div>
+                    <label for="payment-url" class="block text-sm font-medium text-slate-600">Payment Page URL</label>
+                    <input type="text" id="payment-url" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="https://your-stripe-checkout-page.com">
+                    <p class="mt-1 text-xs text-slate-500">The URL users will be sent to for purchasing tokens.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold text-slate-700 mb-4">Support & Information</h2>
+            <div class="space-y-2 text-sm">
+                <p class="text-slate-600">Having trouble? <a href="mailto:support@example.com" class="text-indigo-600 hover:underline">Contact Support</a></p>
+                <p class="text-slate-600">Review our <a href="privacy.html" target="_blank" class="text-indigo-600 hover:underline">Privacy Policy</a></p>
+                <p class="text-slate-600">Read the <a href="terms.html" target="_blank" class="text-indigo-600 hover:underline">Terms of Service</a></p>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
  
