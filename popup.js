@@ -32,15 +32,31 @@
     // --- Initialization ---
 
     function initialize() {
-        // Load token balance from storage
-        chrome.storage.local.get(['tokenBalance'], function(result) {
-            tokenBalance = result.tokenBalance || 0; // Default to 0 if not set
-            updateTokenUI();
-        });
+        // Load token balance from backend
+        fetchTokenBalance();
 
         // Attempt to extract job description from the current page
         extractJobDescription();
         hideError();
+    }
+
+    async function fetchTokenBalance() {
+        try {
+            const response = await fetch('http://localhost:3000/get-token-balance');
+            if (response.ok) {
+                const data = await response.json();
+                tokenBalance = data.tokens;
+                updateTokenUI();
+            } else {
+                console.error('Failed to fetch token balance');
+                tokenBalance = 0;
+                updateTokenUI();
+            }
+        } catch (error) {
+            console.error('Error fetching token balance:', error);
+            tokenBalance = 0;
+            updateTokenUI();
+        }
     }
 
     function updateTokenUI() {
@@ -116,15 +132,14 @@
             formData.append('jobDescription', jobDescriptionText.value);
 
             // 3. Call backend API
-            // This endpoint would handle parsing, AI generation, and file creation
+            // This endpoint handles parsing, AI generation, and file creation
             const response = await callBackendAPI(formData);
 
             // 4. Set up download links from the response
-            setupDownloadLinks(response.downloads);
+            setupDownloadLinks(response);
 
-            // 5. Deduct token and update storage
-            tokenBalance--;
-            chrome.storage.local.set({ tokenBalance: tokenBalance });
+            // 5. Update token balance from response
+            tokenBalance = response.newTokenBalance;
             updateTokenUI();
 
             // 6. Show results view
@@ -139,42 +154,31 @@
     // --- API & Backend Placeholders ---
 
     /**
-     * Placeholder for calling your secure backend API.
-     * Your backend will handle the calls to PDF.co and OpenAI.
+     * Calls the secure backend API to generate tailored documents.
      * @param {FormData} formData - The form data containing files and text.
-     * @returns {Promise<object>} - An object with download URLs/blobs.
+     * @returns {Promise<object>} - An object with base64 encoded files.
      */
-    function callBackendAPI(formData) {
+    async function callBackendAPI(formData) {
         console.log("Sending data to backend...");
-        // In a real extension, you would use fetch() to send the formData
-        // to your secure backend endpoint, e.g., `https://your-api.com/generate`.
-        // The backend would return URLs or data for the generated files.
 
-        // NEVER expose your API keys on the client-side.
-        
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                console.log("Backend processing complete.");
-                 if (jobDescriptionText.value.includes("ERROR")) {
-                    return reject(new Error("The AI model failed to generate a response. Please try again."));
-                 }
+        try {
+            const response = await fetch('http://localhost:3000/generate', {
+                method: 'POST',
+                body: formData
+            });
 
-                // This is mock data. A real backend would return file blobs or secure download links.
-                const mockResumeDocx = new Blob(["This is a mock DOCX resume."], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-                const mockResumePdf = new Blob(["This is a mock PDF resume."], { type: 'application/pdf' });
-                const mockCoverLetterDocx = new Blob(["This is a mock DOCX cover letter."], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-                const mockCoverLetterPdf = new Blob(["This is a mock PDF cover letter."], { type: 'application/pdf' });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to generate documents');
+            }
 
-                resolve({
-                    downloads: {
-                        resumeDocx: URL.createObjectURL(mockResumeDocx),
-                        resumePdf: URL.createObjectURL(mockResumePdf),
-                        coverLetterDocx: URL.createObjectURL(mockCoverLetterDocx),
-                        coverLetterPdf: URL.createObjectURL(mockCoverLetterPdf),
-                    }
-                });
-            }, 3000); // Simulate network and processing delay
-        });
+            const data = await response.json();
+            console.log("Backend processing complete.");
+            return data;
+        } catch (error) {
+            console.error('Backend API Error:', error);
+            throw error;
+        }
     }
 
     // --- Event Listeners & UI ---
@@ -197,13 +201,34 @@
 
     generateBtn.addEventListener('click', handleGeneration);
     
-    purchaseTokensBtn.addEventListener('click', () => {
-        // In a real extension, this would open a new tab to your Stripe/Paddle checkout page.
-        alert("This would redirect to a payment page. Simulating successful purchase by adding 5 tokens.");
-        tokenBalance += 5;
-        chrome.storage.local.set({ tokenBalance: tokenBalance }, () => {
-            updateTokenUI();
-        });
+    purchaseTokensBtn.addEventListener('click', async () => {
+        try {
+            // Create payment session with backend
+            const response = await fetch('http://localhost:3000/create-payment-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to create payment session');
+            }
+
+            const data = await response.json();
+
+            // Redirect to Stripe Checkout
+            if (window.Stripe) {
+                const stripe = window.Stripe('pk_test_your_publishable_key_here'); // You'll need to replace this with your actual publishable key
+                await stripe.redirectToCheckout({ sessionId: data.id });
+            } else {
+                // Fallback: open payment URL in new tab
+                chrome.tabs.create({ url: `https://checkout.stripe.com/pay/${data.id}` });
+            }
+        } catch (error) {
+            console.error('Payment error:', error);
+            showError('Failed to initiate payment. Please try again.');
+        }
     });
 
     startOverBtn.addEventListener('click', () => {
@@ -220,10 +245,20 @@
     });
 
     function setupDownloadLinks({ resumeDocx, resumePdf, coverLetterDocx, coverLetterPdf }) {
-        downloadResumeDocxBtn.onclick = () => window.open(resumeDocx, '_blank');
-        downloadResumePdfBtn.onclick = () => window.open(resumePdf, '_blank');
-        downloadCoverLetterDocxBtn.onclick = () => window.open(coverLetterDocx, '_blank');
-        downloadCoverLetterPdfBtn.onclick = () => window.open(coverLetterPdf, '_blank');
+        // Set up download links with proper filenames
+        downloadResumeDocxBtn.onclick = () => downloadFile(resumeDocx, 'tailored-resume.docx');
+        downloadResumePdfBtn.onclick = () => downloadFile(resumePdf, 'tailored-resume.pdf');
+        downloadCoverLetterDocxBtn.onclick = () => downloadFile(coverLetterDocx, 'cover-letter.docx');
+        downloadCoverLetterPdfBtn.onclick = () => downloadFile(coverLetterPdf, 'cover-letter.pdf');
+    }
+
+    function downloadFile(dataUrl, filename) {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     function showView(viewName) {
